@@ -17,8 +17,7 @@ queue the job and execute only the first `someClosureFunc` once finished:\
 `queue.AddAndCloseOnce(jobID, myRquest, someClosureFunc)`
 
 ## PS
-Use `fifo.Queue[comparable, any, any](ctx)` if you need more than one `Requset`/`Response` type and do type assertion at runtime:\
-[example/advanced/main.go](https://github.com/frifox/fifo/blob/master/example/advanced/main.go#L61)
+Use `fifo.Queue[comparable, any, any](ctx)` if you need more than one `Requset`/`Response` type and do type assertion at runtime: [example/advanced/main.go](https://github.com/frifox/fifo/blob/master/example/advanced/main.go#L61)
 
 ## Example (simple)
 ```go
