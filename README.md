@@ -29,6 +29,20 @@ queue.Add(jobID, myRequest, func(resp any) {
 queue.AddAndCloseOnce(jobID, myRequest, func(resp any) {
     ...
 })
+
+// queue the job & wait for response from worker
+ch := make(chan any)
+queue.Add(jobID, myRequest, func(resp any) {
+    ch <- resp
+})
+switch resp := (<-ch).(type) {
+case Response:
+	...
+case error:
+	...
+default:
+	...
+}
 ```
 
 ## Process queue
