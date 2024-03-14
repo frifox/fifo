@@ -3,82 +3,106 @@
 When you get too many requests and really need to avoid processing same job multiple times.
 
 ## Init queue
-Queue for jobs of type `Request`, results of type `Response`, and jobs uniquely grouped by `JobID`\
-`queue := fifo.NewQueue[JobID,Request,Response](context.Background())`
+```go
+// typed
+type JobID string
+type Request struct{...}
+type Response struct{...}
+queue := fifo.NewQueue[JobID, Request, Response](context.Background())
+
+// untyped
+queue := fifo.NewQueue[string, any, any](context.Background())
+```
 
 ## Send job to queue
-queue a job for background processing:\
-`queue.Add(jobID, myRequest)`
 
-queue the job and execute all queued `someClosureFunc` once finished:\
-`queue.Add(jobID, myRequest, someClosureFunc)`
+```go
+// queue a job for background processing
+queue.Add(jobID, myRequest)
 
-queue the job and execute only the first `someClosureFunc` once finished:\
-`queue.AddAndCloseOnce(jobID, myRquest, someClosureFunc)`
+// queue the job & execute every closure once finished
+queue.Add(jobID, myRequest, func(resp any) {
+    ...
+})
 
-## PS
-Use `fifo.Queue[comparable, any, any](ctx)` if you need more than one `Requset`/`Response` type and do type assertion at runtime: [example/advanced/main.go](https://github.com/frifox/fifo/blob/master/example/advanced/main.go#L63)
+// queue the job & execute only the first closure once finished:
+queue.AddAndCloseOnce(jobID, myRequest, func(resp any) {
+    ...
+})
+```
+
+## Process queue
+```go
+for job := range queue.Jobs {
+    jobID := job.ID
+    request := job.Request
+	
+    response := Response{...}
+	
+    queue.Finish(jobID, response)
+}
+```
 
 ## Example (simple)
 ```go
 package main
 
 import (
-	"context"
-	"fmt"
-	"github.com/frifox/fifo"
-	"io"
-	"net/http"
-	"sync"
+    "context"
+    "fmt"
+    "github.com/frifox/fifo"
+    "io"
+    "net/http"
+    "sync"
 )
 
 type Request struct {
-	URL string
+    URL string
 }
 type Response struct {
-	Body string
+    Body string
 }
 
 func main() {
-	queue := fifo.NewQueue[string, Request, Response](context.Background())
-	tasks := sync.WaitGroup{}
+    queue := fifo.NewQueue[string, Request, Response](context.Background())
+    tasks := sync.WaitGroup{}
 
-	request := Request{
-		URL: "https://google.com/",
-	}
-	closure := func(r Response) {
-		fmt.Printf("[closure] job finished: body=`%s`\n", r.Body)
-		tasks.Done()
-	}
+    request := Request{
+        URL: "https://google.com/",
+    }
+    closure := func(r Response) {
+        fmt.Printf("[closure] job finished: body=`%s`\n", r.Body)
+        tasks.Done()
+    }
 
-	// launch 10 queue workers
-	for i := 0; i < 10; i++ {
-		go func() {
-			for job := range queue.Jobs {
-				fmt.Printf("[worker] starting: jobID=%s\n", job.ID)
-				resp, _ := http.Get(job.Request.URL)
-				body, _ := io.ReadAll(resp.Body)
+    // launch 10 queue workers
+    for i := 0; i < 10; i++ {
+        go func() {
+            for job := range queue.Jobs {
+                fmt.Printf("[worker] starting: jobID=%s\n", job.ID)
+                resp, _ := http.Get(job.Request.URL)
+                body, _ := io.ReadAll(resp.Body)
 
-				fmt.Printf("[worker] processed: jobID=%s\n", job.ID)
-				queue.Finish(job.ID, Response{
-					Body: string(body[:20]) + "...",
-				})
-			}
-		}()
-	}
+                fmt.Printf("[worker] processed: jobID=%s\n", job.ID)
+                queue.Finish(job.ID, Response{
+                    Body: string(body[:20]) + "...",
+                })
+            }
+        }()
+    }
 
-	// queue job 10 times
-	for i := 0; i < 10; i++ {
-		tasks.Add(1)
-		queued := queue.Add(request.URL, request, closure)
-		if queued {
-			fmt.Printf("[queue] job added\n")
-		} else {
-			fmt.Printf("[queue] job is already in the queue\n")
-		}
-	}
+    // queue job 10 times
+    for i := 0; i < 10; i++ {
+        tasks.Add(1)
+        queued := queue.Add(request.URL, request, closure)
+        if queued {
+            fmt.Printf("[queue] job added\n")
+        } else {
+            fmt.Printf("[queue] job is already in the queue\n")
+        }
+    }
 
-	tasks.Wait()
+    tasks.Wait()
 }
 ```
 
