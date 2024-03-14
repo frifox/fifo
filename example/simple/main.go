@@ -30,18 +30,7 @@ func main() {
 
 	// launch 10 queue workers
 	for i := 0; i < 10; i++ {
-		go func() {
-			for job := range queue.Jobs {
-				fmt.Printf("[worker] starting: jobID=%s\n", job.ID)
-				resp, _ := http.Get(job.Request.URL)
-				body, _ := io.ReadAll(resp.Body)
-
-				fmt.Printf("[worker] processed: jobID=%s\n", job.ID)
-				queue.Finish(job.ID, Response{
-					Body: string(body[:20]) + "...",
-				})
-			}
-		}()
+		go worker(queue)
 	}
 
 	// queue job 10 times
@@ -56,4 +45,17 @@ func main() {
 	}
 
 	tasks.Wait()
+}
+
+func worker(queue *fifo.Queue[string, Request, Response]) {
+	for job := range queue.Jobs {
+		fmt.Printf("[worker] starting: jobID=%s\n", job.ID)
+		resp, _ := http.Get(job.Request.URL)
+		body, _ := io.ReadAll(resp.Body)
+
+		fmt.Printf("[worker] processed: jobID=%s\n", job.ID)
+		queue.Finish(job.ID, Response{
+			Body: string(body[:20]) + "...",
+		})
+	}
 }
