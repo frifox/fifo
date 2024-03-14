@@ -3,7 +3,7 @@
 When you get too many requests and really need to avoid processing same job multiple times.
 
 ## Init queue
-Jobs of type `Request`, results of type `Response`, and jobs uniquely grouped by `JobID`\
+Queue for jobs of type `Request`, results of type `Response`, and jobs uniquely grouped by `JobID`\
 `queue := fifo.NewQueue[JobID,Request,Response](context.Background())`
 
 ## Send job to queue
@@ -17,7 +17,8 @@ queue the job and execute only the first `someClosureFunc` once finished:\
 `queue.AddAndCloseOnce(jobID, myRquest, someClosureFunc)`
 
 ## PS
-Use `fifo.Queue[comparable, any, any](ctx)` if you need more than one `Requset`/`Response` type and do type assertion at runtime
+Use `fifo.Queue[comparable, any, any](ctx)` if you need more than one `Requset`/`Response` type and do type assertion at runtime:\
+[example/advanced/main.go](https://github.com/frifox/fifo/blob/master/example/advanced/main.go#L61)
 
 ## Example (simple)
 ```go

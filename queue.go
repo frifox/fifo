@@ -141,7 +141,7 @@ func (q *Queue[ID, Request, Response]) newQueue() (chan<- ID, <-chan ID) {
 	return push, pull
 }
 
-// manageQueue, clever use of push/pull chan in front, container/list in back
+// manageQueue, push/pull chan in front, container/list in back
 func (q *Queue[ID, Request, Response]) manageQueue(push <-chan ID, pull chan<- ID) {
 	queue := list.New()
 	for {

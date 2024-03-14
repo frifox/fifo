@@ -2,9 +2,8 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"github.com/frifox/fifo"
-	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -40,22 +39,21 @@ func (c *Worker) Run() {
 			cancel()
 			c.Queue.Finish(job.ID, response)
 		default:
-			slog.Error("worker didn't handle a supported job type", "type", fmt.Sprintf("%T", request))
+			c.Queue.Finish(job.ID, errors.New("unsupported request type"))
 		}
 	}
 }
 
-type WorkerResponseOk struct {
+type WorkerResponse struct {
 	IsGmail bool
 }
-type WorkerResponseError string
 
 func (c *Worker) processRequestA(request WorkerRequestA, ctx context.Context) any {
 	select {
 	case <-ctx.Done():
-		return WorkerResponseError(ctx.Err().Error())
+		return ctx.Err()
 	case <-time.After(time.Second * 1): // simulate SLOW func
-		return WorkerResponseOk{
+		return WorkerResponse{
 			IsGmail: strings.HasSuffix(request.Email, "@gmail.com"),
 		}
 	}
@@ -64,9 +62,9 @@ func (c *Worker) processRequestA(request WorkerRequestA, ctx context.Context) an
 func (c *Worker) processRequestB(request WorkerRequestB, ctx context.Context) any {
 	select {
 	case <-ctx.Done():
-		return WorkerResponseError(ctx.Err().Error())
+		return ctx.Err()
 	case <-time.After(time.Millisecond * 100): // simulate FAST func
-		return WorkerResponseOk{
+		return WorkerResponse{
 			IsGmail: strings.HasSuffix(request.Email, "@gmail.com"),
 		}
 	}

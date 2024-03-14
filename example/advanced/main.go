@@ -42,6 +42,7 @@ func main() {
 	go pushJob(reqA.Email, reqA)
 	go pushJob(reqA.Email, reqA) // duplicate
 	go pushJob(reqB.Email, reqB)
+	go pushJob("foo-bar", "foo") // unsupported request
 
 	slog.Info("wait for job responses or hit CTRL+C")
 	<-AppCtx.Done()
@@ -60,20 +61,20 @@ func pushJob(jobID string, request any) {
 
 	closure := func(response any) {
 		switch response.(type) {
-		case WorkerResponseOk:
-			log.Info("job response received", "response", response)
-			// save result to database...
-		case WorkerResponseError:
+		case WorkerResponse:
+			log.Info("job response received. Caching to database", "response", response)
+		case error:
 			log.Error("job response was an error", "err", response)
 		default:
-			log.Error("job response was unhandled", "type", fmt.Sprintf("%T", response))
+			log.Error("unsupported job response", "type", fmt.Sprintf("%T", response))
 		}
 
 		AppTasks.Done()
 	}
 
-	ok := MyQueue.Add(jobID, request, closure)
+	ok := MyQueue.AddAndCloseOnce(jobID, request, closure)
 	if !ok {
+		AppTasks.Done()
 		log.Warn("job not added, already is in queue")
 	}
 }
