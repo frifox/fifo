@@ -2,37 +2,44 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"github.com/frifox/fifo"
-	"log/slog"
+	"io"
+	"net/http"
 	"sync"
-	"time"
 )
 
-func main() {
-	queue := fifo.NewQueue[string, string, string](context.Background())
+type Request struct {
+	URL string
+}
+type Response struct {
+	Body string
+}
 
+func main() {
+	queue := fifo.NewQueue[string, Request, Response](context.Background())
 	tasks := sync.WaitGroup{}
 
-	// job
-	jobID := "myJobID"
-	request := "some-data"
-	closure := func(response string) {
-		slog.Info("closure: request finished", "response", response)
+	request := Request{
+		URL: "https://google.com/",
+	}
+	closure := func(r Response) {
+		fmt.Printf("[closure] job finished: body=`%s`\n", r.Body)
 		tasks.Done()
 	}
 
-	// launch 10 workers
+	// launch 10 queue workers
 	for i := 0; i < 10; i++ {
 		go func() {
 			for job := range queue.Jobs {
-				slog.Info("worker: request received", "jobID", job.ID)
+				fmt.Printf("[worker] starting: jobID=%s\n", job.ID)
+				resp, _ := http.Get(job.Request.URL)
+				body, _ := io.ReadAll(resp.Body)
 
-				time.Sleep(time.Second)
-				response := job.Request + "=processed"
-				time.Sleep(time.Second)
-
-				slog.Info("worker: request proceessed", "jobID", job.ID)
-				queue.Finish(job.ID, response)
+				fmt.Printf("[worker] processed: jobID=%s\n", job.ID)
+				queue.Finish(job.ID, Response{
+					Body: string(body[:20]) + "...",
+				})
 			}
 		}()
 	}
@@ -40,15 +47,13 @@ func main() {
 	// queue job 10 times
 	for i := 0; i < 10; i++ {
 		tasks.Add(1)
-
-		queued := queue.Add(jobID, request, closure)
+		queued := queue.Add(request.URL, request, closure)
 		if queued {
-			slog.Info("queue: job added")
+			fmt.Printf("[queue] job added\n")
 		} else {
-			slog.Warn("queue: job is already in the queue")
+			fmt.Printf("[queue] job is already in the queue\n")
 		}
 	}
 
-	// wait for all closures to execute
 	tasks.Wait()
 }
