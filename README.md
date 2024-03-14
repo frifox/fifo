@@ -1,6 +1,6 @@
 # FIFO Queue with dedup & closures
 
-When you get too many requests and really need to avoid processing same job multiple times.
+When you get too many requests and really need to avoid processing the same job twice.
 
 ## Init queue
 ```go
