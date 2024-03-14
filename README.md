@@ -25,7 +25,7 @@ queue.Add(jobID, myRequest, func(resp any) {
     ...
 })
 
-// queue the job & execute only the first closure once finished:
+// queue the job & execute only the first closure once finished
 queue.AddAndCloseOnce(jobID, myRequest, func(resp any) {
     ...
 })
