@@ -4,13 +4,15 @@ import (
 	"container/list"
 	"context"
 	"sync"
+	"sync/atomic"
 )
 
 type Queue[ID comparable, Request any, Response any] struct {
 	Jobs chan job[ID, Request]
 
-	jobs     map[ID]job[ID, Request]
-	jobsLock sync.Mutex
+	jobs      map[ID]job[ID, Request]
+	jobsLock  sync.Mutex
+	jobsCount atomic.Int64
 
 	closures     map[ID][]func(Response)
 	closuresLock sync.Mutex
@@ -45,6 +47,10 @@ func (q *Queue[ID, Request, Response]) init(ctx context.Context) {
 	go q.pushJobsToConsumers()
 }
 
+func (q *Queue[ID, Request, Response]) Len() int64 {
+	return q.jobsCount.Load()
+}
+
 func (q *Queue[ID, Request, Response]) Add(jobID ID, request Request, closures ...func(Response)) (queued bool) {
 	q.jobsLock.Lock()
 	defer q.jobsLock.Unlock()
@@ -67,6 +73,7 @@ func (q *Queue[ID, Request, Response]) Add(jobID ID, request Request, closures .
 		Request: request,
 	}
 	q.push <- jobID
+	q.jobsCount.Add(1)
 
 	return true
 }
@@ -94,6 +101,7 @@ func (q *Queue[ID, Request, Response]) AddAndCloseOnce(jobID ID, request Request
 		Request: request,
 	}
 	q.push <- jobID
+	q.jobsCount.Add(1)
 
 	return true
 }
@@ -118,6 +126,8 @@ func (q *Queue[ID, Request, Response]) Finish(jobID ID, ret Response) {
 	}
 	delete(q.closures, jobID)
 	q.closuresLock.Unlock()
+
+	q.jobsCount.Add(-1)
 }
 
 func (q *Queue[ID, Request, Response]) pushJobsToConsumers() {
